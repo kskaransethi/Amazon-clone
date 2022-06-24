@@ -6,7 +6,6 @@ import { useStateValue } from "./StateProvider";
 import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import CurrencyFormat from "react-currency-format";
 import { getBasketTotal } from "./reducer";
-import axios from "./axios";
 import { db } from "./firebase";
 
 function Payment() {
@@ -25,18 +24,24 @@ function Payment() {
 
   useEffect(() => {
     const getClientSecret = async () => {
-      const response = await axios({
-        method: "post",
-        // Stripe expects the total in a currencies subunits
-        url: `/payments/create?total=${getBasketTotal(basket) * 100}`,
-      });
-
-      setClientSecret(response.data.clientSecret);
-      console.log("secret key", clientSecret);
+      await fetch(
+        "http://localhost:5001/clone-cee60/us-central1/api/payments/create",
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+          body: JSON.stringify({ total: getBasketTotal(basket) * 100 }),
+        }
+      )
+        .then((res) => res.json())
+        .then((data) => setClientSecret(data.clientSecret));
     };
-
     getClientSecret();
   }, [basket]);
+
 
   console.log("the secret is >>>", clientSecret);
 
@@ -51,7 +56,7 @@ function Payment() {
       .then(({ paymentIntent }) => {
         console.log(paymentIntent);
         db.collection("users")
-          .doc(!user ? " " : user.uid)
+          .doc(user.uid)
           .collection("orders")
           .doc(paymentIntent.id)
           .set({
